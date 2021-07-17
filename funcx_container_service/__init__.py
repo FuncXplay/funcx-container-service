@@ -77,8 +77,7 @@ async def status(build_id: UUID, db: Session = Depends(db_session)):
 
 @app.get("/{build_id}/docker", response_model=Optional[str])
 async def get_docker(build_id: UUID, tasks: BackgroundTasks,
-                     db: Session = Depends(db_session),
-                     ecr=Depends(build.ecr_connection)):
+                     db: Session = Depends(db_session)):
     """Get the Docker build for a container.
 
     If the container is not ready, null is returned, and a build is
@@ -86,7 +85,7 @@ async def get_docker(build_id: UUID, tasks: BackgroundTasks,
     was invalid and cannot be completed, returns HTTP 410: Gone.
     """
 
-    container_id, url = await build.make_ecr_url(db, ecr, str(build_id))
+    container_id, url = await build.make_ecr_url(db, str(build_id))
     if not url:
         tasks.add_task(build.background_build, container_id, None)
     return url

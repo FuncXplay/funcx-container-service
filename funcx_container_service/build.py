@@ -16,6 +16,7 @@ from .models import ContainerSpec, ContainerState
 REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
+DOCKER_PUSH_CMD = 'docker push {}'
 
 
 def s3_connection():
@@ -50,7 +51,7 @@ def ecr_check(db, ecr, container_id):
 def docker_name(container_id):
     # XXX need to add repo info here
     print ("docker name called")
-    return f'funcx_{container_id}'
+    return f'farland233/funcx_{container_id}'
 
 
 def docker_size(container_id):
@@ -210,9 +211,10 @@ async def make_s3_container_url(db, s3, bucket, build_id):
     return container.id, url
 
 
-async def make_ecr_url(db, ecr, build_id):
+async def make_ecr_url(db, build_id):
     for row in db.query(database.Build).filter(database.Build.id == build_id):
         container = row.container
+        print("container.id = " + str(container.id))
         break
     else:
         raise HTTPException(status_code=404)
@@ -227,9 +229,9 @@ async def make_ecr_url(db, ecr, build_id):
         else:
             return container.id, None
 
-    if not ecr_check(db, ecr, container.id):
-        await remove(db, container.id)
-        return container.id, None
+    # if not ecr_check(db, ecr, container.id):
+    #     await remove(db, container.id)
+    #     return container.id, None
 
     container.last_used = datetime.now()
 
@@ -264,6 +266,13 @@ async def background_build(container_id, tarball):
             container.state = ContainerState.ready
         finally:
             container.builder = None
+            with tempfile.NamedTemporaryFile() as out:
+                proc = await asyncio.create_subprocess_shell(
+                    DOCKER_PUSH_CMD.format(docker_name(container_id)),
+                    stdout=out, stderr=out)
+                await proc.communicate()
+            if proc.returncode != 0:
+                print("push err")
             await landlord.cleanup(db)
 
 
@@ -275,18 +284,18 @@ async def remove(db, container_id):
     container.docker_size = None
     container.singularity_size = None
 
-    s3 = s3_connection()
-    ecr = ecr_connection()
+    # s3 = s3_connection()
+    # ecr = ecr_connection()
 
-    await asyncio.to_thread(s3.delete_object,
-                            {'Bucket': 'singularity', 'Key': container_id})
-    await asyncio.to_thread(s3.delete_object,
-                            {'Bucket': 'singularity-logs',
-                             'Key': container_id})
-    await asyncio.to_thread(s3.delete_object,
-                            {'Bucket': 'docker-logs', 'Key': container_id})
-    try:
-        await asyncio.to_thread(ecr.delete_repository,
-                                repositoryName=container_id, force=True)
-    except ecr.exceptions.RepositoryNotFoundException:
-        pass
+    # await asyncio.to_thread(s3.delete_object,
+    #                         {'Bucket': 'singularity', 'Key': container_id})
+    # await asyncio.to_thread(s3.delete_object,
+    #                         {'Bucket': 'singularity-logs',
+    #                          'Key': container_id})
+    # await asyncio.to_thread(s3.delete_object,
+    #                         {'Bucket': 'docker-logs', 'Key': container_id})
+    # try:
+    #     await asyncio.to_thread(ecr.delete_repository,
+    #                             repositoryName=container_id, force=True)
+    # except ecr.exceptions.RepositoryNotFoundException:
+    #     pass
