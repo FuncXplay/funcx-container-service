@@ -24,7 +24,7 @@ def db_session():
     finally:
         session.close()
 
-
+### build a container and returns container_id
 @app.post("/build", response_model=UUID)
 async def simple_build(spec: ContainerSpec, tasks: BackgroundTasks,
                        db: Session = Depends(db_session)):

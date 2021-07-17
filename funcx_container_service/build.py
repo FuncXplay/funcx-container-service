@@ -49,10 +49,12 @@ def ecr_check(db, ecr, container_id):
 
 def docker_name(container_id):
     # XXX need to add repo info here
+    print ("docker name called")
     return f'funcx_{container_id}'
 
 
 def docker_size(container_id):
+    print ("docker size called")
     docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
     try:
         inspect = docker_client.inspect_image(docker_name(container_id))
@@ -74,16 +76,16 @@ def env_from_spec(spec):
     return out
 
 
-async def build_spec(s3, container_id, spec, tmp_dir):
+async def build_spec(container_id, spec, tmp_dir):
     if spec.apt:
         with (tmp_dir / 'apt.txt').open('w') as f:
             f.writelines([x + '\n' for x in spec.apt])
     with (tmp_dir / 'environment.yml').open('w') as f:
         json.dump(env_from_spec(spec), f, indent=4)
-    return await repo2docker_build(s3, container_id, tmp_dir)
+    return await repo2docker_build(container_id, tmp_dir)
 
 
-async def build_tarball(s3, container_id, tarball, tmp_dir):
+async def build_tarball(container_id, tarball, tmp_dir):
     with tarfile.open(tarball) as tar_obj:
         await asyncio.to_thread(tar_obj.extractall, path=tmp_dir)
 
@@ -91,27 +93,27 @@ async def build_tarball(s3, container_id, tarball, tmp_dir):
     if len(os.listdir(tmp_dir)) == 0:
         raise HTTPException(status_code=415, detail="Invalid tarball")
 
-    return await repo2docker_build(s3, container_id, tmp_dir)
+    return await repo2docker_build(container_id, tmp_dir)
 
 
-async def repo2docker_build(s3, container_id, temp_dir):
+async def repo2docker_build(container_id, temp_dir):
     with tempfile.NamedTemporaryFile() as out:
         proc = await asyncio.create_subprocess_shell(
                 REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
                 stdout=out, stderr=out)
         await proc.communicate()
 
-        out.flush()
-        out.seek(0)
-        await asyncio.to_thread(
-                s3_upload, s3, out.name, 'docker-logs', container_id)
+        # out.flush()
+        # out.seek(0)
+        # await asyncio.to_thread(
+        #         s3_upload, s3, out.name, 'docker-logs', container_id)
 
     if proc.returncode != 0:
         return None
     return docker_size(container_id)
 
 
-async def singularity_build(s3, container_id):
+async def singularity_build(container_id):
     with tempfile.NamedTemporaryFile() as sif, \
             tempfile.NamedTemporaryFile() as out:
         proc = await asyncio.create_subprocess_shell(
@@ -119,37 +121,37 @@ async def singularity_build(s3, container_id):
                 stdout=out, stderr=out)
         await proc.communicate()
 
-        await asyncio.to_thread(
-                s3_upload, s3, out.name, 'singularity-logs', container_id)
+        # await asyncio.to_thread(
+        #         s3_upload, s3, out.name, 'singularity-logs', container_id)
 
         if proc.returncode != 0:
             return None
         container_size = os.stat(sif.name).st_size
         if container_size > 0:
-            await asyncio.to_thread(
-                    s3_upload, s3, sif.name, 'singularity', container_id)
+            # await asyncio.to_thread(
+            #         s3_upload, s3, sif.name, 'singularity', container_id)
+            print("container size > 0")
         else:
             container_size = None
         return container_size
 
 
-async def docker_build(s3, container, tarball):
+async def docker_build(container, tarball):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         if container.specification:
             container_size = await build_spec(
-                    s3,
                     container.id,
                     ContainerSpec.parse_raw(container.specification),
                     tmp)
         else:
             if not tarball:
-                download = tempfile.NamedTemporaryFile()
-                tarball = download.name
-                await asyncio.to_thread(
-                        s3.download_file, 'repos', container.id, tarball)
+                print("No tarball")
+                # download = tempfile.NamedTemporaryFile()
+                # tarball = download.name
+                # await asyncio.to_thread(
+                #         s3.download_file, 'repos', container.id, tarball)
             container_size = await build_tarball(
-                    s3,
                     container.id,
                     tarball,
                     tmp)
@@ -236,15 +238,14 @@ async def background_build(container_id, tarball):
         container = db.query(database.Container).filter(
                 database.Container.id == container_id).one()
 
-        s3 = s3_connection()
+        # s3 = s3_connection()
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
         try:
-            container.docker_size = await docker_build(s3, container, tarball)
+            container.docker_size = await docker_build(container, tarball)
             if container.docker_size is None:
                 container.state = ContainerState.failed
                 return
-            container.singularity_size = await singularity_build(
-                    s3, container_id)
+            container.singularity_size = await singularity_build(container_id)
             if container.singularity_size is None:
                 container.state = ContainerState.failed
                 return
