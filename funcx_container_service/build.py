@@ -157,6 +157,7 @@ async def docker_build(container, tarball):
                     tmp)
             # just to be safe
             os.unlink(tarball)
+    print("Docker size is " + container_size)
     return container_size
 
 
