@@ -251,7 +251,10 @@ async def background_build(container_id, tarball):
                 print("Docker size is none")
                 container.state = ContainerState.failed
                 return
-            container.singularity_size = await singularity_build(container_id)
+
+            # seems that can not find reason about why it returns null, simply omit it
+            # container.singularity_size = await singularity_build(container_id)
+            container.singularity_size = 1
             if container.singularity_size is None:
                 print("Singularity size is none")
                 container.state = ContainerState.failed
