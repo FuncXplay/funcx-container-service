@@ -97,6 +97,7 @@ async def build_tarball(container_id, tarball, tmp_dir):
 
 
 async def repo2docker_build(container_id, temp_dir):
+    print("cmd1: " + str(REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir)))
     with tempfile.NamedTemporaryFile() as out:
         proc = await asyncio.create_subprocess_shell(
                 REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
@@ -139,6 +140,7 @@ async def singularity_build(container_id):
 
 
 async def docker_build(container, tarball):
+    print("tmp dir is" + str(tempfile.TemporaryDirectory()))
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         if container.specification:
