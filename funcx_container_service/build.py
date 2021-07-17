@@ -18,19 +18,18 @@ SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 
 
-##
-# def s3_connection():
-#     return boto3.client('s3')
+def s3_connection():
+    return boto3.client('s3')
 
-###
-# def ecr_connection():
-#     return boto3.client('ecr')
 
-##
-# def s3_upload(s3, filename, bucket, key):
-#     s3.upload_file(filename, bucket, key)
+def ecr_connection():
+    return boto3.client('ecr')
 
-##
+
+def s3_upload(s3, filename, bucket, key):
+    s3.upload_file(filename, bucket, key)
+
+
 def s3_check(db, s3, bucket, container_id):
     try:
         s3.head_object(Bucket=bucket, Key=container_id)
@@ -38,7 +37,7 @@ def s3_check(db, s3, bucket, container_id):
         return False
     return True
 
-###
+
 def ecr_check(db, ecr, container_id):
     try:
         resp = ecr.list_images(repositoryName=container_id)
@@ -74,17 +73,17 @@ def env_from_spec(spec):
         out["dependencies"].append({"pip": list(spec.pip)})
     return out
 
-# Remove S3 here
-async def build_spec(container_id, spec, tmp_dir):
+
+async def build_spec(s3, container_id, spec, tmp_dir):
     if spec.apt:
         with (tmp_dir / 'apt.txt').open('w') as f:
             f.writelines([x + '\n' for x in spec.apt])
     with (tmp_dir / 'environment.yml').open('w') as f:
         json.dump(env_from_spec(spec), f, indent=4)
-    return await repo2docker_build(container_id, tmp_dir)
+    return await repo2docker_build(s3, container_id, tmp_dir)
 
-# Remove S3 here
-async def build_tarball(container_id, tarball, tmp_dir):
+
+async def build_tarball(s3, container_id, tarball, tmp_dir):
     with tarfile.open(tarball) as tar_obj:
         await asyncio.to_thread(tar_obj.extractall, path=tmp_dir)
 
@@ -92,10 +91,10 @@ async def build_tarball(container_id, tarball, tmp_dir):
     if len(os.listdir(tmp_dir)) == 0:
         raise HTTPException(status_code=415, detail="Invalid tarball")
 
-    return await repo2docker_build(container_id, tmp_dir)
+    return await repo2docker_build(s3, container_id, tmp_dir)
 
-# Remove S3 here
-async def repo2docker_build(container_id, temp_dir):
+
+async def repo2docker_build(s3, container_id, temp_dir):
     with tempfile.NamedTemporaryFile() as out:
         proc = await asyncio.create_subprocess_shell(
                 REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
@@ -104,15 +103,15 @@ async def repo2docker_build(container_id, temp_dir):
 
         out.flush()
         out.seek(0)
-        # await asyncio.to_thread(
-        #         s3_upload, s3, out.name, 'docker-logs', container_id)
+        await asyncio.to_thread(
+                s3_upload, s3, out.name, 'docker-logs', container_id)
 
     if proc.returncode != 0:
         return None
     return docker_size(container_id)
 
-##
-async def singularity_build(container_id):
+
+async def singularity_build(s3, container_id):
     with tempfile.NamedTemporaryFile() as sif, \
             tempfile.NamedTemporaryFile() as out:
         proc = await asyncio.create_subprocess_shell(
@@ -120,26 +119,26 @@ async def singularity_build(container_id):
                 stdout=out, stderr=out)
         await proc.communicate()
 
-        # await asyncio.to_thread(
-        #         s3_upload, s3, out.name, 'singularity-logs', container_id)
+        await asyncio.to_thread(
+                s3_upload, s3, out.name, 'singularity-logs', container_id)
 
         if proc.returncode != 0:
             return None
         container_size = os.stat(sif.name).st_size
         if container_size > 0:
-            # await asyncio.to_thread(
-            #         s3_upload, s3, sif.name, 'singularity', container_id)
-            print (container_size)
+            await asyncio.to_thread(
+                    s3_upload, s3, sif.name, 'singularity', container_id)
         else:
             container_size = None
         return container_size
 
-# Remove S3 here
-async def docker_build(container, tarball):
+
+async def docker_build(s3, container, tarball):
     with tempfile.TemporaryDirectory() as tmp:
         tmp = Path(tmp)
         if container.specification:
             container_size = await build_spec(
+                    s3,
                     container.id,
                     ContainerSpec.parse_raw(container.specification),
                     tmp)
@@ -147,9 +146,10 @@ async def docker_build(container, tarball):
             if not tarball:
                 download = tempfile.NamedTemporaryFile()
                 tarball = download.name
-                # await asyncio.to_thread(
-                #         s3.download_file, 'repos', container.id, tarball)
+                await asyncio.to_thread(
+                        s3.download_file, 'repos', container.id, tarball)
             container_size = await build_tarball(
+                    s3,
                     container.id,
                     tarball,
                     tmp)
@@ -157,7 +157,7 @@ async def docker_build(container, tarball):
             os.unlink(tarball)
     return container_size
 
-##
+
 async def make_s3_url(db, s3, bucket, build_id, is_container=True):
     for row in db.query(database.Build).filter(database.Build.id == build_id):
         container = row.container
@@ -173,7 +173,7 @@ async def make_s3_url(db, s3, bucket, build_id, is_container=True):
             Params={'Bucket': bucket, 'Key': container.id})
     return url
 
-##
+
 async def make_s3_container_url(db, s3, bucket, build_id):
     for row in db.query(database.Build).filter(database.Build.id == build_id):
         container = row.container
@@ -202,7 +202,7 @@ async def make_s3_container_url(db, s3, bucket, build_id):
             Params={'Bucket': bucket, 'Key': container.id})
     return container.id, url
 
-###
+
 async def make_ecr_url(db, ecr, build_id):
     for row in db.query(database.Build).filter(database.Build.id == build_id):
         container = row.container
@@ -229,7 +229,6 @@ async def make_ecr_url(db, ecr, build_id):
     return container.id, docker_name(container.id)
 
 
-# Removed S3 here
 async def background_build(container_id, tarball):
     with database.session_scope() as db:
         if not await database.start_build(db, container_id):
@@ -237,15 +236,15 @@ async def background_build(container_id, tarball):
         container = db.query(database.Container).filter(
                 database.Container.id == container_id).one()
 
-        # s3 = s3_connection()
+        s3 = s3_connection()
         docker_client = docker.APIClient(base_url=DOCKER_BASE_URL)
         try:
-            container.docker_size = await docker_build(container, tarball)
+            container.docker_size = await docker_build(s3, container, tarball)
             if container.docker_size is None:
                 container.state = ContainerState.failed
                 return
             container.singularity_size = await singularity_build(
-                    container_id)
+                    s3, container_id)
             if container.singularity_size is None:
                 container.state = ContainerState.failed
                 return
@@ -256,8 +255,7 @@ async def background_build(container_id, tarball):
             container.builder = None
             await landlord.cleanup(db)
 
-##
-###
+
 async def remove(db, container_id):
     container = db.query(database.Container).filter(
             database.Container.id == container_id).one()
