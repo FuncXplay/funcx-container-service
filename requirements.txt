@@ -1,0 +1,7 @@
+jupyter-repo2docker
+fastapi[all]
+python-multipart
+uvicorn
+SQLAlchemy
+docker
+boto3
