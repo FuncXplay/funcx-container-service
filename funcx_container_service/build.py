@@ -116,6 +116,8 @@ async def repo2docker_build(container_id, temp_dir):
 async def singularity_build(container_id):
     with tempfile.NamedTemporaryFile() as sif, \
             tempfile.NamedTemporaryFile() as out:
+        print("sif.name = " + str(sif.name))
+        print("docker_name = " + str(docker_name(container_id)))
         proc = await asyncio.create_subprocess_shell(
                 SINGULARITY_CMD.format(sif.name, docker_name(container_id)),
                 stdout=out, stderr=out)
