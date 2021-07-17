@@ -243,10 +243,12 @@ async def background_build(container_id, tarball):
         try:
             container.docker_size = await docker_build(container, tarball)
             if container.docker_size is None:
+                print("Docker size is none")
                 container.state = ContainerState.failed
                 return
             container.singularity_size = await singularity_build(container_id)
             if container.singularity_size is None:
+                print("Singularity size is none")
                 container.state = ContainerState.failed
                 return
             await asyncio.to_thread(docker_client.push,
