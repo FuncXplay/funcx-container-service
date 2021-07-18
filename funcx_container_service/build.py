@@ -17,7 +17,7 @@ REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 DOCKER_PUSH_CMD = 'docker push {}'
-SINGULARITY_PUSH_CMD = 'singularity push {}{} library://farland233/default/{}'
+SINGULARITY_PUSH_CMD = 'singularity push -U {}{} library://farland233/default/{}'
 SCONTAINER_DIR = '/home/farland/container_singularity/'
 
 
@@ -281,6 +281,7 @@ async def background_build(container_id, tarball):
 
             with tempfile.NamedTemporaryFile() as out:
                 proc = await asyncio.create_subprocess_shell(
+                    # singularity push {}{} library://farland233/default/{}
                     SINGULARITY_PUSH_CMD.format(SCONTAINER_DIR, str("singularity_" + container_id), str("singularity_" + container_id)),
                     stdout=out, stderr=out)
                 await proc.communicate()
