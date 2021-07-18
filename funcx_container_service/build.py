@@ -17,6 +17,8 @@ REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 DOCKER_PUSH_CMD = 'docker push {}'
+SINGULARITY_PUSH_CMD = 'singularity push {}{} library://farland233/default/{}'
+SCONTAINER_DIR = '~/container_singularity/'
 
 
 def s3_connection():
@@ -116,13 +118,12 @@ async def repo2docker_build(container_id, temp_dir):
 
 
 async def singularity_build(container_id):
-    with tempfile.NamedTemporaryFile() as sif, \
-            tempfile.NamedTemporaryFile() as out:
-        print(SINGULARITY_CMD.format(sif.name, docker_name(container_id)))
+    with tempfile.NamedTemporaryFile() as out:
+        print(SINGULARITY_CMD.format(SCONTAINER_DIR + str("singularity_" + container_id), docker_name(container_id)))
         # print("sif.name = " + str(sif.name))
         # print("docker_name = " + str(docker_name(container_id)))
         proc = await asyncio.create_subprocess_shell(
-                SINGULARITY_CMD.format(sif.name, docker_name(container_id)),
+                SINGULARITY_CMD.format(SCONTAINER_DIR + str("singularity_" + container_id), docker_name(container_id)),
                 stdout=out, stderr=out)
         await proc.communicate()
 
@@ -131,7 +132,7 @@ async def singularity_build(container_id):
 
         if proc.returncode != 0:
             return None
-        container_size = os.stat(sif.name).st_size
+        container_size = os.stat(SCONTAINER_DIR + str("_" + container_id)).st_size
         if container_size > 0:
             # await asyncio.to_thread(
             #         s3_upload, s3, sif.name, 'singularity', container_id)
@@ -200,15 +201,16 @@ async def make_s3_container_url(db, s3, bucket, build_id):
         else:
             return container.id, None
 
-    if not s3_check(db, s3, bucket, container.id):
-        await remove(db, container.id)
-        return container.id, None
+    # if not s3_check(db, s3, bucket, container.id):
+    #     await remove(db, container.id)
+    #     return container.id, None
 
     container.last_used = datetime.now()
 
-    url = s3.generate_presigned_url(
-            'get_object',
-            Params={'Bucket': bucket, 'Key': container.id})
+    # url = s3.generate_presigned_url(
+    #         'get_object',
+    #         Params={'Bucket': bucket, 'Key': container.id})
+    url = 'https://cloud.sylabs.io/library/farland233/default/' + str("singularity_" + container.id)
     return container.id, url
 
 
@@ -236,7 +238,7 @@ async def make_ecr_url(db, build_id):
 
     container.last_used = datetime.now()
 
-    return container.id, docker_name(container.id)
+    return container.id, "https://hub.docker.com/r/farland233/" + str(docker_name(container.id))
 
 
 async def background_build(container_id, tarball):
@@ -255,7 +257,7 @@ async def background_build(container_id, tarball):
                 container.state = ContainerState.failed
                 return
 
-            # seems that can not find reason about why it returns null, simply omit it
+
             container.singularity_size = await singularity_build(container_id)
             if container.singularity_size is None:
                 print("Singularity none")
@@ -275,7 +277,15 @@ async def background_build(container_id, tarball):
                     stdout=out, stderr=out)
                 await proc.communicate()
             if proc.returncode != 0:
-                print("push err")
+                print("docker push err")
+
+            with tempfile.NamedTemporaryFile() as out:
+                proc = await asyncio.create_subprocess_shell(
+                    SINGULARITY_PUSH_CMD.format(SCONTAINER_DIR, str("singularity_" + container_id), str("singularity_" + container_id)),
+                    stdout=out, stderr=out)
+                await proc.communicate()
+            if proc.returncode != 0:
+                print("singularity push err")
             await landlord.cleanup(db)
 
 

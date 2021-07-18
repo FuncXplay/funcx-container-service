@@ -87,7 +87,8 @@ async def get_docker(build_id: UUID, tasks: BackgroundTasks,
 
     container_id, url = await build.make_ecr_url(db, str(build_id))
     if not url:
-        tasks.add_task(build.background_build, container_id, None)
+        print("not url")
+        # tasks.add_task(build.background_build, container_id, None)
     return url
 
 
@@ -118,7 +119,8 @@ async def get_singularity(build_id: UUID, tasks: BackgroundTasks,
     container_id, url = await build.make_s3_container_url(
             db, s3, 'singularity', str(build_id))
     if not url:
-        tasks.add_task(build.background_build, container_id, None)
+        print("not url")
+        # tasks.add_task(build.background_build, container_id, None)
     return url
 
 
