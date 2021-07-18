@@ -238,7 +238,7 @@ async def make_ecr_url(db, build_id):
 
     container.last_used = datetime.now()
 
-    return container.id, "https://hub.docker.com/r/farland233/" + str(docker_name(container.id))
+    return container.id, "https://hub.docker.com/r/" + str(docker_name(container.id))
 
 
 async def background_build(container_id, tarball):
@@ -281,7 +281,7 @@ async def background_build(container_id, tarball):
 
             with tempfile.NamedTemporaryFile() as out:
                 proc = await asyncio.create_subprocess_shell(
-                    # singularity push {}{} library://farland233/default/{}
+                    # singularity push -U {}{} library://farland233/default/{}
                     SINGULARITY_PUSH_CMD.format(SCONTAINER_DIR, str("singularity_" + container_id), str("singularity_" + container_id)),
                     stdout=out, stderr=out)
                 await proc.communicate()
