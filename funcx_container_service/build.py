@@ -18,7 +18,7 @@ SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 DOCKER_PUSH_CMD = 'docker push {}'
 SINGULARITY_PUSH_CMD = 'singularity push {}{} library://farland233/default/{}'
-SCONTAINER_DIR = '~/container_singularity/'
+SCONTAINER_DIR = '/home/farland/container_singularity/'
 
 
 def s3_connection():
