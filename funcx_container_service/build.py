@@ -132,7 +132,7 @@ async def singularity_build(container_id):
 
         if proc.returncode != 0:
             return None
-        container_size = os.stat(SCONTAINER_DIR + str("_" + container_id)).st_size
+        container_size = os.stat(SCONTAINER_DIR + str("singularity_" + container_id)).st_size
         if container_size > 0:
             # await asyncio.to_thread(
             #         s3_upload, s3, sif.name, 'singularity', container_id)
