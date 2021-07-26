@@ -1,3 +1,4 @@
+from os import error
 from uuid import UUID
 from typing import Optional
 
@@ -6,10 +7,13 @@ from fastapi import (FastAPI, UploadFile, File, Response,
 from pydantic import AnyUrl
 from sqlalchemy.orm import Session
 
-from . import database, build, landlord
+from . import database, build, landlord, local_build
 from .models import ContainerSpec, StatusResponse
 from .dockerfile import emit_dockerfile
 
+from configparser import ConfigParser
+
+config = ConfigParser().read('config.ini')
 app = FastAPI()
 
 
@@ -27,7 +31,7 @@ def db_session():
 ### build a container and returns container_id
 @app.post("/build", response_model=UUID)
 async def simple_build(spec: ContainerSpec, tasks: BackgroundTasks,
-                       db: Session = Depends(db_session)):
+                    db: Session = Depends(db_session)):
     """Build a container based on a JSON specification.
 
     Returns an ID that can be used to query container status.
@@ -36,11 +40,18 @@ async def simple_build(spec: ContainerSpec, tasks: BackgroundTasks,
 
     alt = await landlord.find_existing(db, spec)
     if not alt:
-        tasks.add_task(build.background_build, container_id, None)
-
+        if config['init']['remote'] is 'false':
+            print("locally build")
+            tasks.add_task(local_build.background_build, container_id, None)
+        elif config['init']['remote'] is 'true':
+            tasks.add_task(build.background_build, container_id, None)
+        else:
+            print("error configuration")
+            
     return await database.add_build(db, container_id)
 
 
+### not modified to run locally yet
 @app.post("/build_advanced", response_model=UUID)
 async def advanced_build(tasks: BackgroundTasks, repo: UploadFile = File(...),
                          db: Session = Depends(db_session),
@@ -56,6 +67,7 @@ async def advanced_build(tasks: BackgroundTasks, repo: UploadFile = File(...),
     return await database.add_build(db, container_id)
 
 
+### no need to change
 @app.get("/{build_id}/dockerfile")
 async def dockerfile(build_id: UUID, db: Session = Depends(db_session)):
     """Generate a Dockerfile to build the given container.
@@ -69,6 +81,7 @@ async def dockerfile(build_id: UUID, db: Session = Depends(db_session)):
                     media_type="text/plain")
 
 
+### no need to change
 @app.get("/{build_id}/status", response_model=StatusResponse)
 async def status(build_id: UUID, db: Session = Depends(db_session)):
     """Check the status of a previously submitted build."""
@@ -77,7 +90,8 @@ async def status(build_id: UUID, db: Session = Depends(db_session)):
 
 @app.get("/{build_id}/docker", response_model=Optional[str])
 async def get_docker(build_id: UUID, tasks: BackgroundTasks,
-                     db: Session = Depends(db_session)):
+                     db: Session = Depends(db_session),
+                     ecr=Depends(build.ecr_connection)):
     """Get the Docker build for a container.
 
     If the container is not ready, null is returned, and a build is
@@ -85,9 +99,15 @@ async def get_docker(build_id: UUID, tasks: BackgroundTasks,
     was invalid and cannot be completed, returns HTTP 410: Gone.
     """
 
-    container_id, url = await build.make_ecr_url(db, str(build_id))
+    if config['init']['remote'] is 'false':
+        container_id, url = await local_build.make_ecr_url(db, str(build_id))
+    elif config['init']['remote'] is 'true':
+        container_id, url = await build.make_ecr_url(db, ecr, str(build_id))
+    else:
+        print("error configuration")
     if not url:
         print("not url")
+        # really need to rebuild if url not returned? 
         # tasks.add_task(build.background_build, container_id, None)
     return url
 
@@ -116,10 +136,17 @@ async def get_singularity(build_id: UUID, tasks: BackgroundTasks,
     was invalid and cannot be completed, returns HTTP 410: Gone.
     """
 
-    container_id, url = await build.make_s3_container_url(
-            db, s3, 'singularity', str(build_id))
+    if config['init']['remote'] is 'false':
+        container_id, url = await local_build.make_s3_container_url(
+                db, str(build_id))
+    elif config['init']['remote'] is 'true':
+        container_id, url = await build.make_s3_container_url(
+                db, s3, 'singularity', str(build_id))
+    else:
+        print("error configuration") 
     if not url:
         print("not url")
+        # same question need to rebuild every time or wait?
         # tasks.add_task(build.background_build, container_id, None)
     return url
 
