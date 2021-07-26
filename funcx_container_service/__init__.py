@@ -13,7 +13,9 @@ from .dockerfile import emit_dockerfile
 
 from configparser import ConfigParser
 
-config = ConfigParser().read('config.ini')
+config = ConfigParser()
+config.read('config.ini')
+config.sections()
 app = FastAPI()
 
 
@@ -40,10 +42,10 @@ async def simple_build(spec: ContainerSpec, tasks: BackgroundTasks,
 
     alt = await landlord.find_existing(db, spec)
     if not alt:
-        if config['init']['remote'] is 'false':
+        if str(config.get('init','remote')) ==  'false':
             print("locally build")
             tasks.add_task(local_build.background_build, container_id, None)
-        elif config['init']['remote'] is 'true':
+        elif str(config.get('init','remote')) ==  'true':
             tasks.add_task(build.background_build, container_id, None)
         else:
             print("error configuration")
@@ -99,9 +101,9 @@ async def get_docker(build_id: UUID, tasks: BackgroundTasks,
     was invalid and cannot be completed, returns HTTP 410: Gone.
     """
 
-    if config['init']['remote'] is 'false':
+    if str(config.get('init','remote')) ==  'false':
         container_id, url = await local_build.make_ecr_url(db, str(build_id))
-    elif config['init']['remote'] is 'true':
+    elif str(config.get('init','remote')) ==  'true':
         container_id, url = await build.make_ecr_url(db, ecr, str(build_id))
     else:
         print("error configuration")
@@ -136,10 +138,10 @@ async def get_singularity(build_id: UUID, tasks: BackgroundTasks,
     was invalid and cannot be completed, returns HTTP 410: Gone.
     """
 
-    if config['init']['remote'] is 'false':
+    if str(config.get('init','remote')) ==  'false':
         container_id, url = await local_build.make_s3_container_url(
                 db, str(build_id))
-    elif config['init']['remote'] is 'true':
+    elif str(config.get('init','remote')) ==  'true':
         container_id, url = await build.make_s3_container_url(
                 db, s3, 'singularity', str(build_id))
     else:

@@ -20,17 +20,18 @@ DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 DOCKER_PUSH_CMD = 'docker push {}'
 SINGULARITY_PUSH_CMD = 'singularity push -U {}{}{}{}'
 
-# config['upload']['singularity_library']
 # upload        singularity_library
 # path          singularity
-config = ConfigParser().read('config.ini')
+config = ConfigParser()
+config.read('config.ini')
+config.sections()
 
 
 def docker_name(container_id):
     # XXX need to add repo info here
     print ("docker name called")
-    print (f"{config['user']['user_name']}/funcx_{container_id}")
-    return f"{config['user']['user_name']}/funcx_{container_id}"
+    print (f"{str(config.get('user','user_name'))}/funcx_{container_id}")
+    return f"{str(config.get('user','user_name'))}/funcx_{container_id}"
 
 
 def docker_size(container_id):
@@ -91,15 +92,15 @@ async def repo2docker_build(container_id, temp_dir):
 
 async def singularity_build(container_id):
     with tempfile.NamedTemporaryFile() as out:
-        # print(SINGULARITY_CMD.format(config['path']['singularity'] + str("singularity_" + container_id), docker_name(container_id)))
+        # print(SINGULARITY_CMD.format(str(config.get('path','singularity')) + str("singularity_" + container_id), docker_name(container_id)))
         proc = await asyncio.create_subprocess_shell(
-                SINGULARITY_CMD.format(str(config['path']['singularity']) + str("singularity_" + container_id), docker_name(container_id)),
+                SINGULARITY_CMD.format(str(config.get('path','singularity')) + str("singularity_" + container_id), docker_name(container_id)),
                 stdout=out, stderr=out)
         await proc.communicate()
 
         if proc.returncode != 0:
             return None
-        container_size = os.stat(str(config['path']['singularity']) + str("singularity_" + container_id)).st_size
+        container_size = os.stat(str(config.get('path','singularity')) + str("singularity_" + container_id)).st_size
         if container_size > 0:
             print("container size > 0")
         else:
@@ -168,7 +169,7 @@ async def make_s3_container_url(db, build_id):
 
     container.last_used = datetime.now()
 
-    url = 'https://cloud.sylabs.io/' + str(config['upload']['singularity_library']) + str("singularity_" + container.id)
+    url = 'https://cloud.sylabs.io/' + str(config.get('path','singularity_library')) + str("singularity_" + container.id)
     return container.id, url
 
 
@@ -233,7 +234,7 @@ async def background_build(container_id, tarball):
             with tempfile.NamedTemporaryFile() as out:
                 proc = await asyncio.create_subprocess_shell(
                     # singularity push -U {}{} library://farland233/default/{}
-                    SINGULARITY_PUSH_CMD.format(str(config['path']['singularity']), str("singularity_" + container_id), str(config['upload']['singularity_library']), str("singularity_" + container_id)),
+                    SINGULARITY_PUSH_CMD.format(str(config.get('path','singularity')), str("singularity_" + container_id), str(config.get('path','singularity_library')), str("singularity_" + container_id)),
                     stdout=out, stderr=out)
                 await proc.communicate()
             if proc.returncode != 0:
