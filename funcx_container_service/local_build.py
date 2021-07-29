@@ -174,7 +174,7 @@ async def make_s3_container_url(db, build_id):
 
     container.last_used = datetime.now()
 
-    url = 'https://cloud.sylabs.io/' + str(config.get('path','singularity_library')) + str("singularity_" + container.id)
+    url = 'https://cloud.sylabs.io/' + str(config.get('upload','singularity_library')) + str("singularity_" + container.id)
     return container.id, url
 
 
@@ -239,7 +239,7 @@ async def background_build(container_id, tarball):
             with tempfile.NamedTemporaryFile() as out:
                 proc = await asyncio.create_subprocess_shell(
                     # singularity push -U {}{} library://farland233/default/{}
-                    SINGULARITY_PUSH_CMD.format(str(config.get('path','singularity')), str("singularity_" + container_id), str(config.get('path','singularity_library')), str("singularity_" + container_id)),
+                    SINGULARITY_PUSH_CMD.format(str(config.get('path','singularity')), str("singularity_" + container_id), str(config.get('upload','singularity_library')), str("singularity_" + container_id)),
                     stdout=out, stderr=out)
                 await proc.communicate()
             if proc.returncode != 0:
