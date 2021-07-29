@@ -97,8 +97,7 @@ async def status(build_id: UUID, db: Session = Depends(db_session)):
 
 @app.get("/{build_id}/docker", response_model=Optional[str])
 async def get_docker(build_id: UUID, tasks: BackgroundTasks,
-                     db: Session = Depends(db_session),
-                     ecr=Depends(build.ecr_connection)):
+                     db: Session = Depends(db_session)):
     """Get the Docker build for a container.
 
     If the container is not ready, null is returned, and a build is
@@ -109,6 +108,7 @@ async def get_docker(build_id: UUID, tasks: BackgroundTasks,
     if str(config.get('init','remote')) ==  'false':
         container_id, url = await local_build.make_ecr_url(db, str(build_id))
     elif str(config.get('init','remote')) ==  'true':
+        ecr = Depends(build.ecr_connection)
         container_id, url = await build.make_ecr_url(db, ecr, str(build_id))
     else:
         print("error configuration")
@@ -134,8 +134,7 @@ async def get_docker_log(build_id: UUID, tasks: BackgroundTasks,
 
 @app.get("/{build_id}/singularity", response_model=Optional[AnyUrl])
 async def get_singularity(build_id: UUID, tasks: BackgroundTasks,
-                          db: Session = Depends(db_session),
-                          s3=Depends(build.s3_connection)):
+                          db: Session = Depends(db_session)):
     """Get the Docker build for a container.
 
     If the container is not ready, null is returned, and a build is
@@ -147,6 +146,7 @@ async def get_singularity(build_id: UUID, tasks: BackgroundTasks,
         container_id, url = await local_build.make_s3_container_url(
                 db, str(build_id))
     elif str(config.get('init','remote')) ==  'true':
+        s3 = Depends(build.s3_connection)
         container_id, url = await build.make_s3_container_url(
                 db, s3, 'singularity', str(build_id))
     else:
