@@ -21,7 +21,7 @@ REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
 SINGULARITY_CMD = 'singularity build --force {} docker-daemon://{}:latest'
 DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 DOCKER_PUSH_CMD = 'docker push {}'
-SINGULARITY_PUSH_CMD = 'singularity push -U {}{}{}{}'
+SINGULARITY_PUSH_CMD = 'singularity push -U {}{} {}{}'
 
 
 # set absolute path for config.ini
