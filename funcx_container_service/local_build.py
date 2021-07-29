@@ -34,8 +34,6 @@ config.sections()
 
 def docker_name(container_id):
     # XXX need to add repo info here
-    print ("docker name called")
-    print (f"{str(config.get('user','user_name'))}/funcx_{container_id}")
     return f"{str(config.get('user','user_name'))}/funcx_{container_id}"
 
 
@@ -83,7 +81,7 @@ async def build_tarball(container_id, tarball, tmp_dir):
 
 
 async def repo2docker_build(container_id, temp_dir):
-    print("cmd1: " + str(REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir)))
+    print("repo2docker build")
     with tempfile.NamedTemporaryFile() as out:
         proc = await asyncio.create_subprocess_shell(
                 REPO2DOCKER_CMD.format(docker_name(container_id), temp_dir),
@@ -92,12 +90,14 @@ async def repo2docker_build(container_id, temp_dir):
 
     if proc.returncode != 0:
         return None
+    else:
+        print("repo2docker build completed")
     return docker_size(container_id)
 
 
 async def singularity_build(container_id):
     with tempfile.NamedTemporaryFile() as out:
-        # print(SINGULARITY_CMD.format(str(config.get('path','singularity')) + str("singularity_" + container_id), docker_name(container_id)))
+        print("singularity build")
         proc = await asyncio.create_subprocess_shell(
                 SINGULARITY_CMD.format(str(config.get('path','singularity')) + str("singularity_" + container_id), docker_name(container_id)),
                 stdout=out, stderr=out)
@@ -105,6 +105,8 @@ async def singularity_build(container_id):
 
         if proc.returncode != 0:
             return None
+        else:
+            print("singularity build completed")
         container_size = os.stat(str(config.get('path','singularity')) + str("singularity_" + container_id)).st_size
         if container_size > 0:
             print("container size > 0")
@@ -229,14 +231,18 @@ async def background_build(container_id, tarball):
         finally:
             container.builder = None
             with tempfile.NamedTemporaryFile() as out:
+                print("push docker")
                 proc = await asyncio.create_subprocess_shell(
                     DOCKER_PUSH_CMD.format(docker_name(container_id)),
                     stdout=out, stderr=out)
                 await proc.communicate()
             if proc.returncode != 0:
                 print("docker push err")
+            else:
+                print("push docker completed")
 
             with tempfile.NamedTemporaryFile() as out:
+                print("push singularity")
                 proc = await asyncio.create_subprocess_shell(
                     # singularity push -U {}{} library://farland233/default/{}
                     SINGULARITY_PUSH_CMD.format(str(config.get('path','singularity')), str("singularity_" + container_id), str(config.get('upload','singularity_library')), str("singularity_" + container_id)),
@@ -244,6 +250,8 @@ async def background_build(container_id, tarball):
                 await proc.communicate()
             if proc.returncode != 0:
                 print("singularity push err")
+            else:
+                print("push singularity completed")
             await landlord.cleanup(db)
 
 
