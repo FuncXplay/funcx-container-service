@@ -12,6 +12,9 @@ from fastapi import HTTPException
 from . import database, landlord
 from .models import ContainerSpec, ContainerState
 from configparser import ConfigParser
+import os
+
+
 
 
 REPO2DOCKER_CMD = 'jupyter-repo2docker --no-run --image-name {} {}'
@@ -20,10 +23,12 @@ DOCKER_BASE_URL = 'unix://var/run/docker.sock'
 DOCKER_PUSH_CMD = 'docker push {}'
 SINGULARITY_PUSH_CMD = 'singularity push -U {}{}{}{}'
 
-# upload        singularity_library
-# path          singularity
+
+# set absolute path for config.ini
+curfolder = os.path.dirname(os.path.abspath(__file__))
+cfgfile = os.path.join(curfolder, 'config.ini')
 config = ConfigParser()
-config.read('config.ini')
+config.read(cfgfile)
 config.sections()
 
 

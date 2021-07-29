@@ -12,9 +12,14 @@ from .models import ContainerSpec, StatusResponse
 from .dockerfile import emit_dockerfile
 
 from configparser import ConfigParser
+import os
+
+# set absolute path for config.ini
+curfolder = os.path.dirname(os.path.abspath(__file__))
+cfgfile = os.path.join(curfolder, 'config.ini')
 
 config = ConfigParser()
-config.read('config.ini')
+config.read(cfgfile)
 config.sections()
 app = FastAPI()
 
