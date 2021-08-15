@@ -38,6 +38,7 @@ class ContainerSpec(BaseModel):
             if v:
                 v.sort()
         canonical = json.dumps(tmp, sort_keys=True)
+        # This is actually checksum
         print("method 'digest' called, got " + hashlib.sha256(canonical.encode()).hexdigest())
         return hashlib.sha256(canonical.encode()).hexdigest()
 

@@ -56,9 +56,12 @@ async def find_existing(db, spec):
         if not target.issubset(other):
             continue
         distance = jaccard(target, other)
+        print("distance is " + distance)
         if distance > ALPHA:
+            print("> ALPHA")
             continue
         if distance < best_distance:
+            print("refresh best")
             best_distance = distance
             best = container
 

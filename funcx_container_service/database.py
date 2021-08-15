@@ -20,6 +20,7 @@ from . import build
 
 RUN_ID = str(uuid.uuid4())
 
+# Using Memory dataset
 Base = declarative_base()
 Session = sessionmaker()
 _engine = create_engine(
@@ -79,6 +80,7 @@ def hash_file(pth):
 
 async def store_spec(db, spec):
     container_id = spec.digest()
+    print("container id = " + container_id + ", get from spec.digest()")
 
     for row in db.query(Container).filter(Container.id == container_id):
         return container_id

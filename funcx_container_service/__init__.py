@@ -54,6 +54,8 @@ async def simple_build(spec: ContainerSpec, tasks: BackgroundTasks,
             tasks.add_task(build.background_build, container_id, None)
         else:
             print("error configuration")
+    else:
+        print("not building new container due to small jacaard distence exsiting")
             
     return await database.add_build(db, container_id)
 
