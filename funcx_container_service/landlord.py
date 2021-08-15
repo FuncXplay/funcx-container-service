@@ -48,10 +48,11 @@ async def find_existing(db, spec):
     target = spec_to_set(spec)
     best = None
     best_distance = 2.0  # greater than any jaccard distance, effectively inf.
-
+    print("checking landlord")
     for container in db.query(database.Container).filter(and_(
             database.Container.state == ContainerState.ready,
             database.Container.specification.isnot(None))):
+        print("find one instance")
         other = spec_to_set(ContainerSpec.parse_raw(container.specification))
         if not target.issubset(other):
             continue

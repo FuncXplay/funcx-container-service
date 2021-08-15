@@ -171,3 +171,7 @@ async def get_singularity_log(build_id: UUID, tasks: BackgroundTasks,
 
     url = await build.make_s3_url(db, s3, 'singularity-logs', str(build_id))
     return url
+
+
+
+# 12870504-472c-4bb4-9631-931316af547a
