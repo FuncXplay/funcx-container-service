@@ -62,7 +62,7 @@ async def find_existing(db, spec):
             print("> ALPHA")
             continue
         if distance < best_distance:
-            print("refresh best")
+            print("refresh best: " + str(container.id))
             best_distance = distance
             best = container
 
